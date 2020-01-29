@@ -10,35 +10,27 @@
     using Polly;
     using ShoppingCart;
 
-    public class ProductCatalogueClient : IProductCatalogueClient
+    public partial class ProductCatalogueClient : IProductCatalogueClient
     {
-        private static Policy exponentialRetryPolicy =
-          Policy
-            .Handle<Exception>()
-            .WaitAndRetry(3, attempt => TimeSpan.FromMilliseconds(100 * Math.Pow(2, attempt)), (ex, _) => Console.WriteLine(ex.ToString()));
+        private static Policy exponentialRetryPolicy = Policy.Handle<Exception>()
+                                                                .WaitAndRetry(3, attempt => TimeSpan.FromMilliseconds(100 * Math.Pow(2, attempt)), (ex, _) => Console.WriteLine(ex.ToString()));
 
-        private static string productCatalogueBaseUrl =
-          @"http://private-05cc8-chapter2productcataloguemicroservice.apiary-mock.com";
-        private static string getProductPathTemplate =
-          "/products?productIds=[{0}]";
+        private static string productCatalogueBaseUrl = @"http://private-05cc8-chapter2productcataloguemicroservice.apiary-mock.com";
+        private static string getProductPathTemplate = "/products?productIds=[{0}]";
 
         public async Task<IEnumerable<ShoppingCartItem>>
-          GetShoppingCartItems(int[] productCatalogueIds) =>
-         await exponentialRetryPolicy
-            .Execute(async () => await GetItemsFromCatalogueService(productCatalogueIds).ConfigureAwait(false));
+          GetShoppingCartItems(int[] productCatalogueIds) => await exponentialRetryPolicy.Execute(async () => await GetItemsFromCatalogueService(productCatalogueIds).ConfigureAwait(false));
 
         private async Task<IEnumerable<ShoppingCartItem>>
           GetItemsFromCatalogueService(int[] productCatalogueIds)
         {
-            var response = await
-              RequestProductFromProductCatalogue(productCatalogueIds).ConfigureAwait(false);
+            var response = await RequestProductFromProductCatalogue(productCatalogueIds).ConfigureAwait(false);
             return await ConvertToShoppingCartItems(response).ConfigureAwait(false);
         }
 
         private static async Task<HttpResponseMessage> RequestProductFromProductCatalogue(int[] productCatalogueIds)
         {
-            var productsResource = string.Format(
-              getProductPathTemplate, string.Join(",", productCatalogueIds));
+            var productsResource = string.Format(getProductPathTemplate, string.Join(",", productCatalogueIds));
             using (var httpClient = new HttpClient())
             {
                 httpClient.BaseAddress = new Uri(productCatalogueBaseUrl);
@@ -52,21 +44,12 @@
             var products =
               JsonConvert.DeserializeObject<List<ProductCatalogueProduct>>(await response.Content.ReadAsStringAsync().ConfigureAwait(false));
             return
-              products
-                .Select(p => new ShoppingCartItem(
-                  int.Parse(p.ProductId),
-                  p.ProductName,
-                  p.ProductDescription,
-                  p.Price
-              ));
-        }
-
-        private class ProductCatalogueProduct
-        {
-            public string ProductId { get; set; }
-            public string ProductName { get; set; }
-            public string ProductDescription { get; set; }
-            public Money Price { get; set; }
+              products.Select(p => new ShoppingCartItem(
+                                    int.Parse(p.ProductId),
+                                    p.ProductName,
+                                    p.ProductDescription,
+                                    p.Price
+                                ));
         }
     }
 }
